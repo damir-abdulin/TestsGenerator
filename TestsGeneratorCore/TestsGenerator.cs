@@ -1,4 +1,9 @@
-﻿namespace TestsGeneratorCore;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+
+namespace TestsGeneratorCore;
 
 /// <summary>
 /// Static class for generates tests.
@@ -8,10 +13,61 @@ public class TestsGenerator
     /// <summary>
     /// Generates tests for class from `classes`
     /// </summary>
-    /// <param name="classes">List classes for generation</param>
+    /// <param name="source">Source code for generation.</param>
     /// <returns>Generated tests</returns>
     public List<TestInfo> Generate(string source)
     {
-        throw new NotImplementedException();
+        var root = CSharpSyntaxTree.ParseText(source).GetCompilationUnitRoot();
+        var classes = root.DescendantNodes().OfType<ClassDeclarationSyntax>();
+        var usings = root.DescendantNodes().OfType<UsingDirectiveSyntax>();
+        
+        var result = classes
+            .Where(cl => cl.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword))
+            .Select(cl => GenerateTest(usings, cl))
+            .ToList();
+
+        return result;
+    }
+
+    private TestInfo GenerateTest(IEnumerable<UsingDirectiveSyntax> usings, ClassDeclarationSyntax classDeclaration)
+    {
+
+        var methods = classDeclaration.Members
+            .Where(mem => mem.Kind() == SyntaxKind.MethodDeclaration)
+            .Where(mem => mem.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword));
+
+        //var testCode = new List<MemberDeclarationSyntax>();
+
+        var testCode = methods.Select(m => 
+            CreateTestMethod(((MethodDeclarationSyntax)m).Identifier.ToString()));
+
+        var classDecl =
+            ClassDeclaration(classDeclaration.Identifier + "Tests")
+                .WithMembers(new SyntaxList<MemberDeclarationSyntax>(testCode));
+        
+        var source = CompilationUnit()
+            .WithUsings(new SyntaxList<UsingDirectiveSyntax>(usings)
+                .Add(UsingDirective(QualifiedName(IdentifierName("NUnit"), IdentifierName("Framework")))))
+            .AddMembers(classDecl)
+            .NormalizeWhitespace().ToFullString();
+        
+        return new TestInfo(
+            classDeclaration.Identifier.ToString(), source);
+    }
+
+    private MethodDeclarationSyntax CreateTestMethod(string methodName)
+    {
+        return MethodDeclaration(ParseTypeName("void"), methodName)
+            .WithAttributeLists(
+                SingletonList(
+                    AttributeList(SingletonSeparatedList(Attribute(IdentifierName("Test")))))).
+            WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+            .WithBody(
+                Block(ExpressionStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("Assert"), IdentifierName("Fail")))
+                ))
+            );
     }
 }

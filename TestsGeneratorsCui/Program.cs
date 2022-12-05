@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices.ComTypes;
-
-namespace TestsGeneratorsCui;
+﻿namespace TestsGeneratorsCui;
 
 public static class Program
 {
@@ -40,7 +38,6 @@ public static class Program
     private static bool CheckArgsCount(int argsLength)
     {
         if (argsLength == 5) return true;
-        
         
         Console.WriteLine("[ERROR] Not enough arguments." +
                           "Usage: <input files separated with '|'> <output directory> " +
