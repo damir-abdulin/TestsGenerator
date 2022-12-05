@@ -13,8 +13,8 @@ public class TestsGeneratorService
     private readonly TestsGenerator _testsGenerator = new();
 
     private readonly TransformBlock<string, string> _readerBlock;
-    private readonly TransformManyBlock<string, string> _generatorBlock;
-    private readonly ActionBlock<string> _writerBlock;
+    private readonly TransformManyBlock<string, TestInfo> _generatorBlock;
+    private readonly ActionBlock<TestInfo> _writerBlock;
     
     /// <summary>
     /// Constructor for service
@@ -58,18 +58,18 @@ public class TestsGeneratorService
         }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = degreeOfParallelism });
     }
 
-    private TransformManyBlock<string, string> InitGenerateBlock(int degreeOfParallelism)
+    private TransformManyBlock<string, TestInfo> InitGenerateBlock(int degreeOfParallelism)
     {
-        return new TransformManyBlock<string, string>(source => _testsGenerator.Generate(),
+        return new TransformManyBlock<string, TestInfo>(source => _testsGenerator.Generate(source),
             new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = degreeOfParallelism });
     }
 
-    private ActionBlock<string> InitWriteBlock(int degreeOfParallelism, string outputDirectory)
+    private ActionBlock<TestInfo> InitWriteBlock(int degreeOfParallelism, string outputDirectory)
     {
-        return new ActionBlock<string>(async classInfo =>
+        return new ActionBlock<TestInfo>(async testInfo =>
         {
-            await using var writer = new StreamWriter($"{outputDirectory}\\test.txt");
-            await writer.WriteAsync(classInfo);
+            await using var writer = new StreamWriter($"{outputDirectory}\\{testInfo.Name}.cs");
+            await writer.WriteAsync(testInfo.Source);
         }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = degreeOfParallelism });
     }
 }
