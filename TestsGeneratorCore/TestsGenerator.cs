@@ -44,7 +44,8 @@ public class TestsGenerator
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
                 .WithMembers(new SyntaxList<MemberDeclarationSyntax>(
-                    CreateGlobalVariables(classDeclaration, classVariableName).Concat(testCode)));
+                    SectionsGenerator.GenerateGlobalVarsSection(classDeclaration, classVariableName)
+                        .Concat(testCode)));
         
         var source = CompilationUnit()
             .WithUsings(new SyntaxList<UsingDirectiveSyntax>(usings)
@@ -58,29 +59,6 @@ public class TestsGenerator
             classDeclaration.Identifier.ToString(), source);
     }
 
-    private MemberDeclarationSyntax[] CreateGlobalVariables(ClassDeclarationSyntax classDeclaration, string classVariableName)
-    {
-        var constructor = classDeclaration.Members.FirstOrDefault(
-            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
-
-        if (constructor is null)
-        {
-            return new MemberDeclarationSyntax[] {
-                FieldDeclaration(
-                    VariableDeclaration(
-                            IdentifierName(classDeclaration.Identifier))
-                        .WithVariables(
-                            SingletonSeparatedList<VariableDeclaratorSyntax>(
-                                VariableDeclarator(
-                                    Identifier(classVariableName)))))
-                .WithModifiers(
-                    TokenList(
-                        Token(SyntaxKind.PrivateKeyword)))}; 
-        }
-
-        return null;
-    }
-    
     private MemberDeclarationSyntax CreateSetUpMethod(string classVariableName)
     {
         throw new NotImplementedException();
@@ -95,7 +73,7 @@ public class TestsGenerator
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
             .WithBody(
                 Block(
-                    SectionsGenerator.GenerateAllSections(method, classVariableName)
+                    SectionsGenerator.GenerateTestMethodSections(method, classVariableName)
                 )
             );
     }
