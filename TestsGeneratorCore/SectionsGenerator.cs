@@ -11,7 +11,7 @@ internal static class SectionsGenerator
     /// Generates arrange, act and assert sections for test method.
     /// </summary>
     /// <param name="method">source method</param>
-    /// /// <param name="classVariableName">object name for using in tests</param>
+    /// <param name="classVariableName">object name for using in tests</param>
     /// <returns></returns>
     public static IEnumerable<StatementSyntax> GenerateTestMethodSections(MethodDeclarationSyntax method, string classVariableName)
     {
@@ -20,7 +20,12 @@ internal static class SectionsGenerator
             .Concat(GenerateAssertSection(method));
     }
 
-
+    /// <summary>
+    /// Generate global variables for Mock objects
+    /// </summary>
+    /// <param name="classDeclaration"></param>
+    /// <param name="classVariableName"></param>
+    /// <returns></returns>
     public static IEnumerable<MemberDeclarationSyntax> GenerateGlobalVarsSection
         (ClassDeclarationSyntax classDeclaration, string classVariableName)
     {
@@ -31,6 +36,7 @@ internal static class SectionsGenerator
                 ? GenerateGlobalVarsSectionWithoutCtor(classDeclaration, classVariableName)
                 : GenerateGlobalVarsSectionWithCtor(constructor, classDeclaration, classVariableName);
     }
+
     /// <summary>
     /// Generates arrange section
     /// </summary>
