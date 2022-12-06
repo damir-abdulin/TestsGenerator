@@ -37,12 +37,14 @@ public class TestsGenerator
             .Where(mem => mem.Kind() == SyntaxKind.MethodDeclaration)
             .Where(mem => mem.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword));
 
+        var classVariableName = GenerateClassVariableName(classDeclaration.Identifier.ToString());
         var testCode = methods.Select(m => 
-            CreateTestMethod((MethodDeclarationSyntax)m, "_class"));
+            CreateTestMethod((MethodDeclarationSyntax)m, classVariableName));
 
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
-                .WithMembers(new SyntaxList<MemberDeclarationSyntax>(testCode));
+                .WithMembers(new SyntaxList<MemberDeclarationSyntax>(
+                    CreateGlobalVariables(classDeclaration, classVariableName).Concat(testCode)));
         
         var source = CompilationUnit()
             .WithUsings(new SyntaxList<UsingDirectiveSyntax>(usings)
@@ -56,7 +58,35 @@ public class TestsGenerator
             classDeclaration.Identifier.ToString(), source);
     }
 
-    private MethodDeclarationSyntax CreateTestMethod(MethodDeclarationSyntax method, string classVariableName)
+    private MemberDeclarationSyntax[] CreateGlobalVariables(ClassDeclarationSyntax classDeclaration, string classVariableName)
+    {
+        var constructor = classDeclaration.Members.FirstOrDefault(
+            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
+
+        if (constructor is null)
+        {
+            return new MemberDeclarationSyntax[] {
+                FieldDeclaration(
+                    VariableDeclaration(
+                            IdentifierName(classDeclaration.Identifier))
+                        .WithVariables(
+                            SingletonSeparatedList<VariableDeclaratorSyntax>(
+                                VariableDeclarator(
+                                    Identifier(classVariableName)))))
+                .WithModifiers(
+                    TokenList(
+                        Token(SyntaxKind.PrivateKeyword)))}; 
+        }
+
+        return null;
+    }
+    
+    private MemberDeclarationSyntax CreateSetUpMethod(string classVariableName)
+    {
+        throw new NotImplementedException();
+    }
+    
+    private MemberDeclarationSyntax CreateTestMethod(MethodDeclarationSyntax method, string classVariableName)
     {
         return MethodDeclaration(ParseTypeName("void"), method.Identifier + "Test")
             .WithAttributeLists(
@@ -68,5 +98,12 @@ public class TestsGenerator
                     SectionsGenerator.GenerateAllSections(method, classVariableName)
                 )
             );
+    }
+
+
+    private string GenerateClassVariableName(string typeName)
+    {
+        var result = char.ToLowerInvariant(typeName[0]) + typeName[1..];
+        return "_" + result;
     }
 }
