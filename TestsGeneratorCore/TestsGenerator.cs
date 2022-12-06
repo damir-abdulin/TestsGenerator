@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace TestsGeneratorCore;
@@ -36,10 +37,8 @@ public class TestsGenerator
             .Where(mem => mem.Kind() == SyntaxKind.MethodDeclaration)
             .Where(mem => mem.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword));
 
-        //var testCode = new List<MemberDeclarationSyntax>();
-
         var testCode = methods.Select(m => 
-            CreateTestMethod(((MethodDeclarationSyntax)m).Identifier.ToString()));
+            CreateTestMethod((MethodDeclarationSyntax)m, "_class"));
 
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
@@ -55,19 +54,159 @@ public class TestsGenerator
             classDeclaration.Identifier.ToString(), source);
     }
 
-    private MethodDeclarationSyntax CreateTestMethod(string methodName)
+    private MethodDeclarationSyntax CreateTestMethod(MethodDeclarationSyntax method, string classVariableName)
     {
-        return MethodDeclaration(ParseTypeName("void"), methodName)
+        return MethodDeclaration(ParseTypeName("void"), method.Identifier + "Test")
             .WithAttributeLists(
                 SingletonList(
-                    AttributeList(SingletonSeparatedList(Attribute(IdentifierName("Test")))))).
-            WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+                    AttributeList(SingletonSeparatedList(Attribute(IdentifierName("Test"))))))
+            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
             .WithBody(
-                Block(ExpressionStatement(
-                    InvocationExpression(
-                        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                            IdentifierName("Assert"), IdentifierName("Fail")))
-                ))
+                Block(
+                    GenerateArrangeSection(method)
+                        .Concat(GenerateActSection(method, classVariableName))
+                        .Concat(GenerateAssertSection(method))
+                )
             );
+    }
+
+    private StatementSyntax[] GenerateArrangeSection(MethodDeclarationSyntax method)
+    {
+        var parameters = method.ParameterList.Parameters;
+        return parameters.Select(
+            p => LocalDeclarationStatement(
+                VariableDeclaration(
+                        IdentifierName(p.Type.ToString()))
+                    .WithVariables(
+                        SingletonSeparatedList(
+                            VariableDeclarator(
+                                    Identifier(p.Identifier.ToString()))
+                                .WithInitializer(
+                                    EqualsValueClause(
+                                        LiteralExpression(
+                                            SyntaxKind.DefaultLiteralExpression,
+                                            Token(SyntaxKind.DefaultKeyword)))))))).ToArray();
+    }
+
+    private StatementSyntax[] GenerateActSection(MethodDeclarationSyntax method, string classVariableName)
+    {
+        var parameters = method.ParameterList.Parameters;
+
+        var arguments = new SyntaxNodeOrToken[2 * parameters.Count - 1];
+
+        var currParameter = 0;
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (i % 2 == 0)
+            {
+                arguments[i] = Argument(IdentifierName(parameters[currParameter].Identifier.ToString()));
+                currParameter++;
+            }
+            else
+            {
+                arguments[i] = Token(SyntaxKind.CommaToken);
+            }
+        }
+
+        return new StatementSyntax[]
+        {
+            LocalDeclarationStatement(
+                VariableDeclaration(
+                        IdentifierName(
+                            Identifier(
+                                TriviaList(),
+                                SyntaxKind.VarKeyword,
+                                "var",
+                                "var",
+                                TriviaList())))
+                    .WithVariables(
+                        SingletonSeparatedList<VariableDeclaratorSyntax>(
+                            VariableDeclarator(
+                                    Identifier("actual"))
+                                .WithInitializer(
+                                    EqualsValueClause(
+                                        InvocationExpression(
+                                                MemberAccessExpression(
+                                                    SyntaxKind.SimpleMemberAccessExpression,
+                                                    IdentifierName(classVariableName),
+                                                    IdentifierName(method.Identifier.ToString())))
+                                            .WithArgumentList(
+                                                ArgumentList(
+                                                    SeparatedList<ArgumentSyntax>(arguments))))))))
+        };
+    }
+    
+    private StatementSyntax[] GenerateAssertSection(MethodDeclarationSyntax method)
+    {
+        var returnType = method.ReturnType.ToString();
+
+        if (returnType == "void")
+        {
+            return new StatementSyntax[] { 
+                ExpressionStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("Assert"),
+                            IdentifierName("Fail")))
+                        .WithArgumentList(
+                            ArgumentList(
+                                SingletonSeparatedList<ArgumentSyntax>(
+                                    Argument(
+                                        LiteralExpression(
+                                            SyntaxKind.StringLiteralExpression,
+                                            Literal("autogenerated")))))))};
+        }
+        
+        return new StatementSyntax[] {
+            LocalDeclarationStatement(
+                VariableDeclaration(
+                        IdentifierName(returnType))
+                    .WithVariables(
+                        SingletonSeparatedList(
+                            VariableDeclarator(
+                                    Identifier("excepted"))
+                                .WithInitializer(
+                                    EqualsValueClause(
+                                        LiteralExpression(
+                                            SyntaxKind.DefaultLiteralExpression,
+                                            Token(SyntaxKind.DefaultKeyword))))))),
+            ExpressionStatement(
+                InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("Assert"),
+                            IdentifierName("That")))
+                    .WithArgumentList(
+                        ArgumentList(
+                            SeparatedList<ArgumentSyntax>(
+                                new SyntaxNodeOrToken[]{
+                                    Argument(
+                                        IdentifierName("actual")),
+                                    Token(SyntaxKind.CommaToken),
+                                    Argument(
+                                        InvocationExpression(
+                                                MemberAccessExpression(
+                                                    SyntaxKind.SimpleMemberAccessExpression,
+                                                    IdentifierName("Is"),
+                                                    IdentifierName("EqualTo")))
+                                            .WithArgumentList(
+                                                ArgumentList(
+                                                    SingletonSeparatedList<ArgumentSyntax>(
+                                                        Argument(
+                                                            IdentifierName("expected"))))))})))),
+            ExpressionStatement(
+                InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName("Assert"),
+                        IdentifierName("Fail")))
+                .WithArgumentList(
+                    ArgumentList(
+                        SingletonSeparatedList<ArgumentSyntax>(
+                            Argument(
+                                LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    Literal("autogenerated")))))))};;
     }
 }
