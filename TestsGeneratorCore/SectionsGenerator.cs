@@ -8,19 +8,6 @@ namespace TestsGeneratorCore;
 internal static class SectionsGenerator
 {
     /// <summary>
-    /// Generates arrange, act and assert sections for test method.
-    /// </summary>
-    /// <param name="method">source method</param>
-    /// <param name="classVariableName">object name for using in tests</param>
-    /// <returns></returns>
-    public static IEnumerable<StatementSyntax> GenerateTestMethodSections(MethodDeclarationSyntax method, string classVariableName)
-    {
-        return GenerateArrangeSection(method)
-            .Concat(GenerateActSection(method, classVariableName))
-            .Concat(GenerateAssertSection(method));
-    }
-
-    /// <summary>
     /// Generate global variables for Mock objects
     /// </summary>
     /// <param name="classDeclaration"></param>
@@ -38,149 +25,67 @@ internal static class SectionsGenerator
     }
 
     /// <summary>
-    /// Generates arrange section
+    /// Generate section with initializations mock objects.
     /// </summary>
-    /// <param name="method">source method</param>
-    /// <returns>List with statements</returns>
-    public static IEnumerable<StatementSyntax> GenerateArrangeSection(MethodDeclarationSyntax method)
+    /// <param name="classDeclaration"></param>
+    /// <returns></returns>
+    public static IEnumerable<StatementSyntax>? GenerateMockObjectsInitSection
+        (ClassDeclarationSyntax classDeclaration)
     {
-        var parameters = method.ParameterList.Parameters;
-        return parameters.Select(p =>
-            LocalDeclarationStatement(
-                VariableDeclaration(
-                        IdentifierName(p.Type.ToString()))
-                    .WithVariables(
-                        SingletonSeparatedList(
-                            VariableDeclarator(
-                                    Identifier(p.Identifier.ToString()))
-                                .WithInitializer(
-                                    EqualsValueClause(
-                                        LiteralExpression(
-                                            SyntaxKind.DefaultLiteralExpression,
-                                            Token(SyntaxKind.DefaultKeyword)))))))).ToArray();
-    }
+        var constructor = GetConstructor(classDeclaration);
 
-    /// <summary>
-    /// Generates act section.
-    /// </summary>
-    /// <param name="method">source method</param>
-    /// <param name="classVariableName">object name for using in tests</param>
-    /// <returns>List with statements</returns>
-    public static IEnumerable<StatementSyntax> GenerateActSection(MethodDeclarationSyntax method, string classVariableName)
-    {
-        var parameters = method.ParameterList.Parameters;
-        var arguments = GetArguments(parameters);
+        if (constructor is null) return null;
         
-        return new StatementSyntax[]
+        var result = new StatementSyntax[constructor.ParameterList.Parameters.Count];
+
+        var membersCount = 0;
+        
+        var parameters = constructor.ParameterList.Parameters;
+
+        foreach (var parameter in parameters)
         {
-            LocalDeclarationStatement(
-                VariableDeclaration(
-                        IdentifierName(
-                            Identifier(
-                                TriviaList(),
-                                SyntaxKind.VarKeyword,
-                                "var",
-                                "var",
-                                TriviaList())))
-                    .WithVariables(
-                        SingletonSeparatedList<VariableDeclaratorSyntax>(
-                            VariableDeclarator(
-                                    Identifier("actual"))
-                                .WithInitializer(
-                                    EqualsValueClause(
-                                        InvocationExpression(
-                                                MemberAccessExpression(
-                                                    SyntaxKind.SimpleMemberAccessExpression,
-                                                    IdentifierName(classVariableName),
-                                                    IdentifierName(method.Identifier.ToString())))
-                                            .WithArgumentList(
-                                                ArgumentList(
-                                                    SeparatedList<ArgumentSyntax>(arguments))))))))
-        };
-    }
-    
-    /// <summary>
-    /// Generates assert section
-    /// </summary>
-    /// <param name="method">source method</param>
-    /// <returns>List with statements</returns>
-    public static IEnumerable<StatementSyntax> GenerateAssertSection(MethodDeclarationSyntax method)
-    {
-        var returnType = method.ReturnType.ToString();
-        return returnType == "void" ? GenerateAssertVoidSection() : GenerateAssertNotVoidSection(returnType);
-    }
+            var type = parameter.Type.ToString();
 
-    private static IEnumerable<StatementSyntax> GenerateAssertVoidSection()
-    {
-        return new StatementSyntax[] { 
-            ExpressionStatement(
-                InvocationExpression(
-                        MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            IdentifierName("Assert"),
-                            IdentifierName("Fail")))
-                    .WithArgumentList(
-                        ArgumentList(
-                            SingletonSeparatedList<ArgumentSyntax>(
-                                Argument(
-                                    LiteralExpression(
-                                        SyntaxKind.StringLiteralExpression,
-                                        Literal("autogenerated")))))))};
-    }
-    private static IEnumerable<StatementSyntax> GenerateAssertNotVoidSection(string returnType)
-    {
-        return new StatementSyntax[] {
-            LocalDeclarationStatement(
-                VariableDeclaration(
-                        IdentifierName(returnType))
-                    .WithVariables(
-                        SingletonSeparatedList(
-                            VariableDeclarator(
-                                    Identifier("excepted"))
-                                .WithInitializer(
-                                    EqualsValueClause(
-                                        LiteralExpression(
-                                            SyntaxKind.DefaultLiteralExpression,
-                                            Token(SyntaxKind.DefaultKeyword))))))),
-            ExpressionStatement(
-                InvocationExpression(
-                        MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            IdentifierName("Assert"),
-                            IdentifierName("That")))
-                    .WithArgumentList(
-                        ArgumentList(
-                            SeparatedList<ArgumentSyntax>(
-                                new SyntaxNodeOrToken[]{
-                                    Argument(
-                                        IdentifierName("actual")),
-                                    Token(SyntaxKind.CommaToken),
-                                    Argument(
-                                        InvocationExpression(
-                                                MemberAccessExpression(
-                                                    SyntaxKind.SimpleMemberAccessExpression,
-                                                    IdentifierName("Is"),
-                                                    IdentifierName("EqualTo")))
-                                            .WithArgumentList(
-                                                ArgumentList(
-                                                    SingletonSeparatedList<ArgumentSyntax>(
-                                                        Argument(
-                                                            IdentifierName("expected"))))))})))),
-            ExpressionStatement(
-                InvocationExpression(
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        IdentifierName("Assert"),
-                        IdentifierName("Fail")))
-                .WithArgumentList(
-                    ArgumentList(
-                        SingletonSeparatedList<ArgumentSyntax>(
-                            Argument(
-                                LiteralExpression(
-                                    SyntaxKind.StringLiteralExpression,
-                                    Literal("autogenerated")))))))};;
-    }
+            if (IsInterface(type))
+            {
+                result[membersCount] = 
+                    ExpressionStatement(
+                        AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            IdentifierName("_" + parameter.Identifier),
+                            ObjectCreationExpression(
+                                GenericName(
+                                        Identifier("Mock"))
+                                    .WithTypeArgumentList(
+                                        TypeArgumentList(
+                                            SingletonSeparatedList<TypeSyntax>(
+                                                IdentifierName(type)))))));
 
+                    membersCount++;
+            }
+            else
+            {
+                result[membersCount] =
+                    LocalDeclarationStatement(
+                        VariableDeclaration(
+                                IdentifierName(parameter.Type.ToString()))
+                            .WithVariables(
+                                SingletonSeparatedList<VariableDeclaratorSyntax>(
+                                    VariableDeclarator(
+                                            Identifier(parameter.Identifier.ToString()))
+                                        .WithInitializer(
+                                            EqualsValueClause(
+                                                LiteralExpression(
+                                                    SyntaxKind.DefaultLiteralExpression,
+                                                    Token(SyntaxKind.DefaultKeyword)))))));
+                membersCount++;
+            }
+
+        }
+
+        Array.Resize(ref result, membersCount);
+        return result;
+    }
     private static IEnumerable<MemberDeclarationSyntax> GenerateGlobalVarsSectionWithoutCtor
         (BaseTypeDeclarationSyntax classDeclaration, string classVariableName)
     {
@@ -222,9 +127,9 @@ internal static class SectionsGenerator
         {
             var type = parameter.Type.ToString();
 
-            if (type[0] == 'I')
+            if (IsInterface(type))
             {
-                result[membersCount] = 
+                result[membersCount] =
                     FieldDeclaration(
                         VariableDeclaration(
                                 IdentifierName(type))
@@ -269,5 +174,10 @@ internal static class SectionsGenerator
     {
         return (ConstructorDeclarationSyntax?)classDeclaration.Members.FirstOrDefault(
             m => m.Kind() == SyntaxKind.ConstructorDeclaration);
+    }
+
+    private static bool IsInterface(string typeName)
+    {
+        return typeName[0] == 'I';
     }
 }

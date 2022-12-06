@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Collections.Specialized;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -32,19 +33,23 @@ public class TestsGenerator
 
     private TestInfo GenerateTest(IEnumerable<UsingDirectiveSyntax> usings, ClassDeclarationSyntax classDeclaration)
     {
+        var testMethodGenerator = new TestMethodGenerator(classDeclaration);
+        
 
         var methods = classDeclaration.Members
             .Where(mem => mem.Kind() == SyntaxKind.MethodDeclaration)
             .Where(mem => mem.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword));
 
-        var classVariableName = GenerateClassVariableName(classDeclaration.Identifier.ToString());
+        var classVariableName = testMethodGenerator.ObjName;
         var testCode = methods.Select(m => 
-            CreateTestMethod((MethodDeclarationSyntax)m, classVariableName));
+            testMethodGenerator.GenerateTestMethodBlock((MethodDeclarationSyntax)m));
+
 
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
                 .WithMembers(new SyntaxList<MemberDeclarationSyntax>(
                     SectionsGenerator.GenerateGlobalVarsSection(classDeclaration, classVariableName)
+                        .Append(CreateSetUpMethod(classDeclaration))
                         .Concat(testCode)));
         
         var source = CompilationUnit()
@@ -57,31 +62,26 @@ public class TestsGenerator
         
         return new TestInfo(
             classDeclaration.Identifier.ToString(), source);
-    }
+    }   
 
-    private MemberDeclarationSyntax CreateSetUpMethod(string classVariableName)
+    private MemberDeclarationSyntax CreateSetUpMethod(ClassDeclarationSyntax classDeclaration)
     {
-        throw new NotImplementedException();
-    }
-    
-    private MemberDeclarationSyntax CreateTestMethod(MethodDeclarationSyntax method, string classVariableName)
-    {
-        return MethodDeclaration(ParseTypeName("void"), method.Identifier + "Test")
+        var mockInit = SectionsGenerator.GenerateMockObjectsInitSection(classDeclaration);
+
+        return MethodDeclaration(
+                PredefinedType(
+                    Token(SyntaxKind.VoidKeyword)),
+                Identifier("SetUp"))
             .WithAttributeLists(
-                SingletonList(
-                    AttributeList(SingletonSeparatedList(Attribute(IdentifierName("Test"))))))
-            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+                SingletonList<AttributeListSyntax>(
+                    AttributeList(
+                        SingletonSeparatedList<AttributeSyntax>(
+                            Attribute(
+                                IdentifierName("SetUp"))))))
+            .WithModifiers(
+                TokenList(
+                    Token(SyntaxKind.PublicKeyword)))
             .WithBody(
-                Block(
-                    SectionsGenerator.GenerateTestMethodSections(method, classVariableName)
-                )
-            );
-    }
-
-
-    private string GenerateClassVariableName(string typeName)
-    {
-        var result = char.ToLowerInvariant(typeName[0]) + typeName[1..];
-        return "_" + result;
+                Block(mockInit));
     }
 }
