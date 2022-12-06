@@ -46,7 +46,9 @@ public class TestsGenerator
         
         var source = CompilationUnit()
             .WithUsings(new SyntaxList<UsingDirectiveSyntax>(usings)
-                .Add(UsingDirective(QualifiedName(IdentifierName("NUnit"), IdentifierName("Framework")))))
+                .Add(UsingDirective(QualifiedName(IdentifierName("NUnit"), IdentifierName("Framework"))))
+                .Add(UsingDirective(IdentifierName("Moq")))
+                .Add(UsingDirective(IdentifierName(classDeclaration.Identifier))))
             .AddMembers(classDecl)
             .NormalizeWhitespace().ToFullString();
         
