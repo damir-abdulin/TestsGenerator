@@ -34,6 +34,7 @@ public class TestsGenerator
     private TestInfo GenerateTest(IEnumerable<UsingDirectiveSyntax> usings, ClassDeclarationSyntax classDeclaration)
     {
         var testMethodGenerator = new TestMethodGenerator(classDeclaration);
+        var setUpMethodGenerator = new SetUpMethodGenerator(classDeclaration);
         
 
         var methods = classDeclaration.Members
@@ -42,14 +43,14 @@ public class TestsGenerator
 
         var classVariableName = testMethodGenerator.ObjName;
         var testCode = methods.Select(m => 
-            testMethodGenerator.GenerateTestMethodBlock((MethodDeclarationSyntax)m));
+            testMethodGenerator.GenerateTestMethod((MethodDeclarationSyntax)m));
 
 
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
                 .WithMembers(new SyntaxList<MemberDeclarationSyntax>(
                     SectionsGenerator.GenerateGlobalVarsSection(classDeclaration, classVariableName)
-                        .Append(CreateSetUpMethod(classDeclaration))
+                        .Append(setUpMethodGenerator.GenerateSetUpMethod())
                         .Concat(testCode)));
         
         var source = CompilationUnit()
@@ -62,26 +63,5 @@ public class TestsGenerator
         
         return new TestInfo(
             classDeclaration.Identifier.ToString(), source);
-    }   
-
-    private MemberDeclarationSyntax CreateSetUpMethod(ClassDeclarationSyntax classDeclaration)
-    {
-        var mockInit = SectionsGenerator.GenerateMockObjectsInitSection(classDeclaration);
-
-        return MethodDeclaration(
-                PredefinedType(
-                    Token(SyntaxKind.VoidKeyword)),
-                Identifier("SetUp"))
-            .WithAttributeLists(
-                SingletonList<AttributeListSyntax>(
-                    AttributeList(
-                        SingletonSeparatedList<AttributeSyntax>(
-                            Attribute(
-                                IdentifierName("SetUp"))))))
-            .WithModifiers(
-                TokenList(
-                    Token(SyntaxKind.PublicKeyword)))
-            .WithBody(
-                Block(mockInit));
     }
 }

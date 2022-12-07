@@ -39,7 +39,7 @@ internal class TestMethodGenerator : MemberGenerator
     /// </summary>
     /// <param name="method">source method</param>
     /// <returns></returns>
-    public MemberDeclarationSyntax GenerateTestMethodBlock(MethodDeclarationSyntax method)
+    public MemberDeclarationSyntax GenerateTestMethod(MethodDeclarationSyntax method)
     {
         var bodyBlock = GenerateBodyBlock(method);
         return 

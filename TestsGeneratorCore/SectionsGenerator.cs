@@ -23,69 +23,7 @@ internal static class SectionsGenerator
                 ? GenerateGlobalVarsSectionWithoutCtor(classDeclaration, classVariableName)
                 : GenerateGlobalVarsSectionWithCtor(constructor, classDeclaration, classVariableName);
     }
-
-    /// <summary>
-    /// Generate section with initializations mock objects.
-    /// </summary>
-    /// <param name="classDeclaration"></param>
-    /// <returns></returns>
-    public static IEnumerable<StatementSyntax>? GenerateMockObjectsInitSection
-        (ClassDeclarationSyntax classDeclaration)
-    {
-        var constructor = GetConstructor(classDeclaration);
-
-        if (constructor is null) return null;
-        
-        var result = new StatementSyntax[constructor.ParameterList.Parameters.Count];
-
-        var membersCount = 0;
-        
-        var parameters = constructor.ParameterList.Parameters;
-
-        foreach (var parameter in parameters)
-        {
-            var type = parameter.Type.ToString();
-
-            if (IsInterface(type))
-            {
-                result[membersCount] = 
-                    ExpressionStatement(
-                        AssignmentExpression(
-                            SyntaxKind.SimpleAssignmentExpression,
-                            IdentifierName("_" + parameter.Identifier),
-                            ObjectCreationExpression(
-                                GenericName(
-                                        Identifier("Mock"))
-                                    .WithTypeArgumentList(
-                                        TypeArgumentList(
-                                            SingletonSeparatedList<TypeSyntax>(
-                                                IdentifierName(type)))))));
-
-                    membersCount++;
-            }
-            else
-            {
-                result[membersCount] =
-                    LocalDeclarationStatement(
-                        VariableDeclaration(
-                                IdentifierName(parameter.Type.ToString()))
-                            .WithVariables(
-                                SingletonSeparatedList<VariableDeclaratorSyntax>(
-                                    VariableDeclarator(
-                                            Identifier(parameter.Identifier.ToString()))
-                                        .WithInitializer(
-                                            EqualsValueClause(
-                                                LiteralExpression(
-                                                    SyntaxKind.DefaultLiteralExpression,
-                                                    Token(SyntaxKind.DefaultKeyword)))))));
-                membersCount++;
-            }
-
-        }
-
-        Array.Resize(ref result, membersCount);
-        return result;
-    }
+    
     private static IEnumerable<MemberDeclarationSyntax> GenerateGlobalVarsSectionWithoutCtor
         (BaseTypeDeclarationSyntax classDeclaration, string classVariableName)
     {
@@ -170,14 +108,16 @@ internal static class SectionsGenerator
 
         return arguments;
     }
-    private static ConstructorDeclarationSyntax? GetConstructor(TypeDeclarationSyntax classDeclaration)
-    {
-        return (ConstructorDeclarationSyntax?)classDeclaration.Members.FirstOrDefault(
-            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
-    }
+    
 
     private static bool IsInterface(string typeName)
     {
         return typeName[0] == 'I';
+    }
+    
+    private static ConstructorDeclarationSyntax? GetConstructor(TypeDeclarationSyntax classDeclaration)
+    {
+        return (ConstructorDeclarationSyntax?)classDeclaration.Members.FirstOrDefault(
+            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
     }
 }
