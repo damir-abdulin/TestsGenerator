@@ -43,6 +43,17 @@ internal abstract class MemberGenerator
         return arguments;
     }
     
+    protected static ConstructorDeclarationSyntax? GetConstructor(TypeDeclarationSyntax classDeclaration)
+    {
+        return (ConstructorDeclarationSyntax?)classDeclaration.Members.FirstOrDefault(
+            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
+    }
+
+    protected static bool IsInterface(string typeName)
+    {
+        return typeName[0] == 'I';
+    }
+    
     private static string GenerateObjName(string typeName)
     {
         var result = char.ToLowerInvariant(typeName[0]) + typeName[1..];

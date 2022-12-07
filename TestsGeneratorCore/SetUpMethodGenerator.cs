@@ -54,17 +54,6 @@ internal class SetUpMethodGenerator : MemberGenerator
 
         return result;
     }
-    
-    private static ConstructorDeclarationSyntax? GetConstructor(TypeDeclarationSyntax classDeclaration)
-    {
-        return (ConstructorDeclarationSyntax?)classDeclaration.Members.FirstOrDefault(
-            m => m.Kind() == SyntaxKind.ConstructorDeclaration);
-    }
-    
-    private static bool IsInterface(string typeName)
-    {
-        return typeName[0] == 'I';
-    }
 
     private static StatementSyntax GetLocalVariableDeclaration(ParameterSyntax parameter)
     {

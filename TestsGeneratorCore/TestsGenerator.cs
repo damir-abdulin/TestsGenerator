@@ -35,13 +35,13 @@ public class TestsGenerator
     {
         var testMethodGenerator = new TestMethodGenerator(classDeclaration);
         var setUpMethodGenerator = new SetUpMethodGenerator(classDeclaration);
+        var globalVariablesGenerator = new GlobalVariablesGenerator(classDeclaration);
         
 
         var methods = classDeclaration.Members
             .Where(mem => mem.Kind() == SyntaxKind.MethodDeclaration)
             .Where(mem => mem.Modifiers.Any(m => m.Kind() == SyntaxKind.PublicKeyword));
-
-        var classVariableName = testMethodGenerator.ObjName;
+        
         var testCode = methods.Select(m => 
             testMethodGenerator.GenerateTestMethod((MethodDeclarationSyntax)m));
 
@@ -49,7 +49,7 @@ public class TestsGenerator
         var classDecl =
             ClassDeclaration(classDeclaration.Identifier + "Tests")
                 .WithMembers(new SyntaxList<MemberDeclarationSyntax>(
-                    SectionsGenerator.GenerateGlobalVarsSection(classDeclaration, classVariableName)
+                    globalVariablesGenerator.GenerateGlobalVarsSection()
                         .Append(setUpMethodGenerator.GenerateSetUpMethod())
                         .Concat(testCode)));
         
