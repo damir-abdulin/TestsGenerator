@@ -30,7 +30,7 @@ internal class SetUpMethodGenerator : MemberGenerator
                 TokenList(
                     Token(SyntaxKind.PublicKeyword)))
             .WithBody(
-                Block(GenerateMockObjectsInitSection()!));
+                Block(GenerateMockObjectsInitSection()?.Append(GenerateConstructorCall())!));
     }
     
     private IEnumerable<StatementSyntax>? GenerateMockObjectsInitSection()
@@ -83,5 +83,57 @@ internal class SetUpMethodGenerator : MemberGenerator
                             TypeArgumentList(
                                 SingletonSeparatedList<TypeSyntax>(
                                     IdentifierName(parameter.Type.ToString())))))));
+    }
+
+    private StatementSyntax? GenerateConstructorCall()
+    {
+        var constructor = GetConstructor(ClassDeclarationSyntax);
+        
+        if (constructor is null) return null;
+
+        var arguments = GetArguments(constructor.ParameterList.Parameters);
+
+        return ExpressionStatement(
+            AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                IdentifierName("_obj"),
+                ObjectCreationExpression(
+                        IdentifierName("MyClass"))
+                    .WithArgumentList(
+                        ArgumentList(
+                            SeparatedList<ArgumentSyntax>(arguments)))));
+    }
+
+    private SyntaxNodeOrToken[] GetArguments(SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        var arguments = new SyntaxNodeOrToken[2 * parameters.Count - 1];
+
+        var currParameter = 0;
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (i % 2 == 0)
+            {
+                if (IsInterface(parameters[currParameter].Type.ToString()))
+                {
+                    arguments[i] = Argument(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("_" + parameters[currParameter].Identifier),
+                            IdentifierName("Object")));
+                }
+                else
+                {
+                    arguments[i] = Argument(IdentifierName(parameters[currParameter].Identifier.ToString()));
+                }
+                
+                currParameter++;
+            }
+            else
+            {
+                arguments[i] = Token(SyntaxKind.CommaToken);
+            }
+        }
+
+        return arguments;
     }
 }
