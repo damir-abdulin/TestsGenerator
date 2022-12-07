@@ -77,12 +77,14 @@ internal class SetUpMethodGenerator : MemberGenerator
                 SyntaxKind.SimpleAssignmentExpression,
                 IdentifierName("_" + parameter.Identifier),
                 ObjectCreationExpression(
-                    GenericName(
-                            Identifier("Mock"))
-                        .WithTypeArgumentList(
-                            TypeArgumentList(
-                                SingletonSeparatedList<TypeSyntax>(
-                                    IdentifierName(parameter.Type.ToString())))))));
+                        GenericName(
+                                Identifier("Mock"))
+                            .WithTypeArgumentList(
+                                TypeArgumentList(
+                                    SingletonSeparatedList<TypeSyntax>(
+                                        IdentifierName(parameter.Type.ToString())))))
+                    .WithArgumentList(
+                        ArgumentList())));
     }
 
     private StatementSyntax? GenerateConstructorCall()
@@ -96,15 +98,15 @@ internal class SetUpMethodGenerator : MemberGenerator
         return ExpressionStatement(
             AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
-                IdentifierName("_obj"),
+                IdentifierName(ObjName),
                 ObjectCreationExpression(
-                        IdentifierName("MyClass"))
+                        IdentifierName(ClassDeclarationSyntax.Identifier))
                     .WithArgumentList(
                         ArgumentList(
                             SeparatedList<ArgumentSyntax>(arguments)))));
     }
 
-    private SyntaxNodeOrToken[] GetArguments(SeparatedSyntaxList<ParameterSyntax> parameters)
+    private static IEnumerable<SyntaxNodeOrToken> GetArguments(SeparatedSyntaxList<ParameterSyntax> parameters)
     {
         var arguments = new SyntaxNodeOrToken[2 * parameters.Count - 1];
 

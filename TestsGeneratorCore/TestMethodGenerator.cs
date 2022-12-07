@@ -65,12 +65,18 @@ internal class TestMethodGenerator : MemberGenerator
     {
         var statements = new List<StatementSyntax>();
         AddArrangeSection(statements, method);
-        AddActSection(statements, method);
+        
 
         if (method.ReturnType.ToString() == "void")
+        {
+            AddActSectionVoidMethod(statements, method);
             AddAssertSectionVoidMethod(statements, method);
+        }
         else
+        {
+            AddActSectionNotVoidMethod(statements, method);
             AddAssertSectionNotVoidMethod(statements, method);
+        }
         
         return Block(statements);
     }
@@ -92,11 +98,12 @@ internal class TestMethodGenerator : MemberGenerator
                                             SyntaxKind.DefaultLiteralExpression,
                                             Token(SyntaxKind.DefaultKeyword)))))))));
     }
-    private void AddActSection(ICollection<StatementSyntax> statements, MethodDeclarationSyntax method)
+    private void AddActSectionNotVoidMethod(ICollection<StatementSyntax> statements, MethodDeclarationSyntax method)
     {
         var parameters = method.ParameterList.Parameters;
         var arguments = GetArgumentsForFunction(parameters);
 
+        
         statements.Add(
             LocalDeclarationStatement(
                 VariableDeclaration(
@@ -122,6 +129,22 @@ internal class TestMethodGenerator : MemberGenerator
                                                 ArgumentList(
                                                     SeparatedList<ArgumentSyntax>(arguments))))))))
             );
+    }
+
+    private void AddActSectionVoidMethod(ICollection<StatementSyntax> statements, MethodDeclarationSyntax method)
+    {
+        var parameters = method.ParameterList.Parameters;
+        var arguments = GetArgumentsForFunction(parameters);
+        
+        statements.Add(ExpressionStatement(
+            InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName(ObjName),
+                        IdentifierName(method.Identifier.ToString())))
+                .WithArgumentList(
+                    ArgumentList(
+                        SeparatedList<ArgumentSyntax>(arguments)))));
     }
 
     private static void AddAssertSectionVoidMethod(ICollection<StatementSyntax> statements, MethodDeclarationSyntax method)

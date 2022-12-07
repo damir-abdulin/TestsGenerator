@@ -51,7 +51,7 @@ internal class GlobalVariablesGenerator : MemberGenerator
             result[membersCount] =
                 FieldDeclaration(
                         VariableDeclaration(
-                                IdentifierName(type))
+                                IdentifierName($"Mock<{type}>"))
                             .WithVariables(
                                 SingletonSeparatedList<VariableDeclaratorSyntax>(
                                     VariableDeclarator(
